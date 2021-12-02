@@ -14,7 +14,6 @@ app.get('/ping', (_req, res) => {
 
 app.use('/api/subtitles', subtitleRouter);
 
-
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

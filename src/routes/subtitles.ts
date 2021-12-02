@@ -1,26 +1,39 @@
 import express from 'express';
 import multer from 'multer';
-import fs from 'fs';
+import fs from 'fs/promises';
+import { parseText } from '../services/subtitles';
 
-const upload = multer({ dest: 'uploads/' });
+const upload = multer({ 
+  dest: 'uploads/', 
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype !== 'application/x-subrip') {
+      return cb(new Error('File is not allowed, subtitles only please!'));
+    }
+  
+    cb(null, true);
+  }
+}).single('subtitles');
+  
 const router = express.Router();
 
-router.post('/', upload.single('subtitles'), (req, res) => {
-  console.log(req.file);
-  if (req.file?.mimetype === 'application/x-subrip') {
-    const path = req.file?.path;
-    const data: string = fs.readFileSync(`${path}`, 'utf8');
-    const lines: string[] = data.split('\r\n');
-    const sentences: string[] = lines.filter(line => {
-      return /[a-zA-Z]/.test(line);
-    });
-    console.log(sentences.length);
-    console.log(sentences.join(' '));
-    res.send(sentences.join(' '));
-  } else {
-    res.send('Subtitle files only please!');
-  }
-
+router.post('/', (req, res) => {
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+  upload(req, res, async (error) => {
+    if (error instanceof multer.MulterError) {
+      console.log('instance');
+      res.send(error);
+    } else if (error) {
+      res.send('File is not allowed, subtitles only please!');
+    } else {
+      const path: string | undefined = req.file?.path;
+      const data: string = await fs.readFile(`${path}`, 'utf8');
+      const text = parseText(data);
+      
+      res.send(text);
+    
+      fs.unlink(`${path}`).catch(err => console.log(err));
+    }
+  });
 });
 
 router.get('/', (req, res) => {
